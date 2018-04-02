@@ -7,7 +7,7 @@ The [spring-petclinic-angular project](https://github.com/spring-petclinic/sprin
 
 ## Integrate with aws-serverless-java-container
 
-![image](src/main/resources/images/SpringBoot-lambda-wrapper.png)
+![image](src/main/resources/images/SparkJava-lambda-wrapper.png)
 
 By using the aws-serverless-java-container wrapper library, you can easily intercept all the incoming web traffic in to API Gateway.
 And the best practice is bind a lambda function with proxy integration mode onto API Gateway. 
