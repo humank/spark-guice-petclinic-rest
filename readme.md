@@ -97,9 +97,9 @@ All the incoming traffic will first be received by APIG and then delegate to you
     ```
     aws cloudformation package --template-file sam.yaml --output-template-file output-sam.yaml --s3-bucket lambda-jar-upload
     
-    aws cloudformation deploy --template-file output-sam.yaml --stack-name spring-petclinic --capabilities CAPABILITY_IAM 
+    aws cloudformation deploy --template-file output-sam.yaml --stack-name spark-guice-petclinic --capabilities CAPABILITY_IAM 
     
-    aws cloudformation describe-stacks --stack-name spring-petclinic | jq '.Stacks[0].Outputs[0].OutputValue'
+    aws cloudformation describe-stacks --stack-name spark-guice-petclinic | jq '.Stacks[0].Outputs[0].OutputValue'
     
     ```
     > Then you can hit the provided api gateway url to access the owners list in json payload.
