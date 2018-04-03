@@ -16,6 +16,19 @@ However, as complexity growthing, the Spring applications take so long time to s
 
 How about running your java application in a Serverless Environment, or the so called Function-as-a-Service (FaaS) environment?
 
+### Performance dominate decisions
+
+#### Using AWS X-Ray to point out time consuming period
+ 
+![image](src/main/resources/images/servicemap.png)
+
+As you can see, by using different framework to provide business logic functions, huge cold start time occurs on Springboot.
+SparkJava + Guice offers a stable and quick response on it.  
+
+![image](src/main/resources/images/springboot.png)
+
+![image](src/main/resources/images/sparkjavaWithGuice.png)
+
 
 This project is modified from Spring boot Petclinic application only provides a REST API. **There is no UI**.
 
