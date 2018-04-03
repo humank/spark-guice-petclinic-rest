@@ -1,11 +1,4 @@
-# The application is forked from Spring-boot sample project
-
-REST version of Spring PetClinic Sample Application (spring-framework-petclinic extend ) [![Build Status](https://travis-ci.org/spring-petclinic/spring-petclinic-rest.png?branch=master)](https://travis-ci.org/spring-petclinic/spring-petclinic-rest/)
-
-This backend version of the Spring Petclinic application only provides a REST API. **There is no UI**.
-The [spring-petclinic-angular project](https://github.com/spring-petclinic/spring-petclinic-angular) is a Angular 5 front-end application witch consumes the REST API.
-
-## Integrate with aws-serverless-java-container
+# Integrate with aws-serverless-java-container
 
 ![image](src/main/resources/images/SparkJava-lambda-wrapper.png)
 
@@ -14,33 +7,183 @@ And the best practice is bind a lambda function with proxy integration mode onto
 
 All the incoming traffic will first be received by APIG and then delegate to your legacy spring controller.
 
+
+## Re-thinking what applications you are developing
+
+Java developers are used to define business logics with Dependency injections, because of the variety and complexity rules are always change, need to have a clear design style to keep robustness and responsibility, the famous DI framework - SpringFramework has been the dominator for a while.
+
+However, as complexity growthing, the Spring applications take so long time to start with it. If you are running it at on-premise server, and you never consider about the waste cost on waiting, then you no feelings on it.
+
+How about running your java application in a Serverless Environment, or the so called Function-as-a-Service (FaaS) environment?
+
+
+This project is modified from Spring boot Petclinic application only provides a REST API. **There is no UI**.
+
+To show out the better choice on when running java application in the serverlesss environment - AWS Lambda, you should consider about do you still need Spring framework to provide dynamic dependency injection? 
+
+How about compile time dependency injection for you ? [Guice](https://github.com/google/guice) is the one to provide a simple DI framework to deal with most works there.
+
+Dependency Injection are usually to be implemented in 3 patterns:
+
+* Constructor Injection
+* Setter Injection
+* Field Injection
+
+I recommend to use Constructor injection, because of the way to manage dependencies will keep you have the ability to write unit test codes, or you will have to do whole bunches of mock-injects invoking surround your codes everywhere.
+
+While adopting Gucie to do DI, all you need is add an @Inject annotation on constructor. 
+
+```aidl
+public class ClinicServiceImpl implements ClinicService {
+
+    private PetRepository petRepository;
+    private VetRepository vetRepository;
+    private OwnerRepository ownerRepository;
+    private VisitRepository visitRepository;
+    private SpecialtyRepository specialtyRepository;
+    private PetTypeRepository petTypeRepository;
+
+
+    @Inject
+    public ClinicServiceImpl(
+        PetRepository petRepository,
+        VetRepository vetRepository,
+        OwnerRepository ownerRepository,
+        VisitRepository visitRepository,
+        SpecialtyRepository specialtyRepository,
+        PetTypeRepository petTypeRepository) {
+        this.petRepository = petRepository;
+        this.vetRepository = vetRepository;
+        this.ownerRepository = ownerRepository;
+        this.visitRepository = visitRepository;
+        this.specialtyRepository = specialtyRepository;
+        this.petTypeRepository = petTypeRepository;
+    }
+
+```
+
+Then, how can we get the injected implementation classes? how can we define the concrete classes to be injected ? 
+
+Guice take a module concept, let you bind the interface/ contract classes to concrete/implemented classes.
+
+```aidl
+public class ClinicModule extends AbstractModule {
+
+    @Override
+    protected void configure(){
+        /**
+         *
+         private PetRepository petRepository;
+         private VetRepository vetRepository;
+         private OwnerRepository ownerRepository;
+         private VisitRepository visitRepository;
+         private SpecialtyRepository specialtyRepository;
+         private PetTypeRepository petTypeRepository;
+
+         */
+
+        bind(OwnerRepository.class).to(JpaOwnerRepositoryImpl.class);
+
+        bind(PetRepository.class).to(JpaPetRepositoryImpl.class);
+        bind(VetRepository.class).to(JpaVetRepositoryImpl.class);
+
+        bind(VisitRepository.class).to(JpaVisitRepositoryImpl.class);
+        bind(SpecialtyRepository.class).to(JpaSpecialtyRepositoryImpl.class);
+        bind(PetTypeRepository.class).to(JpaPetTypeRepositoryImpl.class);
+
+        bind(ClinicService.class).to(ClinicServiceImpl.class);
+
+    }
+}
+```  
+
+Initialize the binding at application starting : 
+
+```aidl
+public static void defineResources() {
+
+        logger.info("starting define route");
+
+        Injector injector = Guice.createInjector(new JpaPersistModule("demo"),new ClinicModule());
+        injector.getInstance(DatabaseModule.JPAInitializer.class);
+
+        //通過這裡來配置 rest controller routing
+
+        OwnerRestController ownerRestController = injector.getInstance(OwnerRestController.class);
+
+
+```
+The best way to know what differences between these, take a look on [Dependency Injection Patterns](https://kinbiko.com/java/dependency-injection-patterns/)
+
+For popular Web traffic handler, most of you would like to use SpringMVC to fulfill this technical requirements. 
+
+Same reasons there, by using SpringMVC, you still face the slow dependency injection life cycle.
+
+[SparkJava](http://sparkjava.com/) is the alternative one to replace. The common web based functionalities are well defined, you can leverage Java8 lambda syntax, easily to define a RESTful Resouce method inkove code snippets.
+
+```aidl
+import static spark.Spark.*;
+
+public class HelloWorld {
+    public static void main(String[] args) {
+        get("/hello", (req, res) -> "Hello World");
+    }
+}
+```
+
+An example to map SparkJava between SpringMVC in REST 
+```aidl
+//@RequestMapping(value = "", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+        get("/owners", (req, res) -> {
+
+            // Command define the interactive behaviors, pass a function variabile in.
+            // while can't get owners, just return 404 not found, instead of let controller to do the detail if else blocks.
+            Collection<Owner> owners = ownerRestController.getOwners(() -> res.status(404));
+            res.status(200);
+
+            return owners;
+        }, new JsonTransformer());
+```
+
 ### Integration Steps 
 
 1.  Add Maven dependency
     ```
     <dependency>
-        <groupId>com.amazonaws.serverless</groupId>
-        <artifactId>aws-serverless-java-container-spring</artifactId>
-        <version>[0.8,)</version>
+                <groupId>com.amazonaws.serverless</groupId>
+                <artifactId>aws-serverless-java-container-spark</artifactId>
+                <version>[0.1,)</version>
     </dependency>
     
-    For current latest version is 1.0, you can just specify the version to 1.0
+    <dependency>
+                <groupId>com.sparkjava</groupId>
+                <artifactId>spark-core</artifactId>
+                <version>2.7.2</version>
+    </dependency>
+    
+    <dependency>
+                <groupId>com.google.inject</groupId>
+                <artifactId>guice</artifactId>
+                <version>4.2.0</version>
+    </dependency>
     ```
-2.  Add StreamLambdaHandler
+2.  Add StreamLambdaHandler, to accpet web request from api gateway, and then transparent payload to sparkjava.
     ```
-    public class WebLambdaHandler implements RequestStreamHandler {
-        private static SpringBootLambdaContainerHandler<AwsProxyRequest, AwsProxyResponse> handler;
+    public class SparkStreamLambdaHandler implements RequestStreamHandler {
+        private static SparkLambdaContainerHandler<AwsProxyRequest, AwsProxyResponse> handler;
         static {
             try {
-                handler = SpringBootLambdaContainerHandler.getAwsProxyHandler(ServletInitializer.class);
+                handler = SparkLambdaContainerHandler.getAwsProxyHandler();
+                SparkResourceRoute.defineResources();
+                Spark.awaitInitialization();
             } catch (ContainerInitializationException e) {
                 // if we fail here. We re-throw the exception to force another cold start
                 e.printStackTrace();
-                throw new RuntimeException("Could not initialize Spring Boot application", e);
+                throw new RuntimeException("Could not initialize Spark container", e);
             }
         }
     
-        public WebLambdaHandler() {
+        public SparkStreamLambdaHandler() {
             // we enable the timer for debugging. This SHOULD NOT be enabled in production.
             Timer.enable();
         }
@@ -68,15 +211,15 @@ All the incoming traffic will first be received by APIG and then delegate to you
     ```
     AWSTemplateFormatVersion: '2010-09-09'
     Transform: AWS::Serverless-2016-10-31
-    Description: Example Pet Store API written with SpringBoot with the aws-serverless-java-container library
+    Description: Example Pet Store API written with spark/guice with the aws-serverless-java-container library
     Resources:
       PetStoreFunction:
         Type: AWS::Serverless::Function
         Properties:
-          Handler: org.springframework.samples.petclinic.WebLambdaHandler::handleRequest
+          Handler: solid.humank.serverlesslabs.SparkStreamLambdaHandler::handleRequest
           Runtime: java8
-          CodeUri: target/spring-petclinic-1.5.2.jar
-          MemorySize: 1512
+          CodeUri: target/sparkjava-petclinic-1.0.0.jar
+          MemorySize: 512
           Policies: AWSLambdaFullAccess
           Timeout: 60
           Events:
@@ -89,9 +232,9 @@ All the incoming traffic will first be received by APIG and then delegate to you
     Outputs:
       SpringBootPetStoreApi:
         Description: URL for application
-        Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/api/owners'
+        Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/owners'
         Export:
-          Name: SpringBootPetClinicApi
+          Name: SparkPetClinicApi
     ```
 5.  Deploy it
     ```
@@ -103,19 +246,8 @@ All the incoming traffic will first be received by APIG and then delegate to you
     
     ```
     > Then you can hit the provided api gateway url to access the owners list in json payload.
-## Screenshot of the Angular 5 client
-
-The application is backed to serve spring-petclinic-angular5 client, so if you want to have a integrated ui experiense, then you would like to clone it and run it.
-Partially modify the service api path to the integrated API Gateway.
-
-Migrate the front-end web site to s3-static web hosting site and then Run full integration test
-
-<img width="1427" alt="spring-petclinic-angular2" src="https://cloud.githubusercontent.com/assets/838318/23263243/f4509c4a-f9dd-11e6-951b-69d0ef72d8bd.png">
-
 
 ## Database configuration
 
 In its default configuration, Petclinic uses an in-memory database (HSQLDB) which
 gets populated at startup with data.
-A similar setups is provided for MySql and PostgreSQL in case a persistent database configuration is needed.
-To run petclinic locally using persistent database, it is needed to change profile defined in application.properties file.
