@@ -22,7 +22,7 @@ How about running your java application in a Serverless Environment, or the so c
  
 ![image](src/main/resources/images/servicemap.png)
 
-As you can see, by using different framework to provide business logic functions, huge cold start time occurs on Springboot.
+As you see, by using different framework to provide business logic functions, huge cold start time occurs on Springboot.
 SparkJava + Guice offers a stable and quick response on it.  
 
 ![image](src/main/resources/images/springboot.png)
